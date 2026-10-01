@@ -5,3 +5,6 @@ paramiko>=3.4.0
 python-multipart>=0.0.9
 python-jose[cryptography]>=3.3.0
 cryptography>=42.0.0
+urllib3>=2.2.0
+pydantic>=2.0.0
+
