@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => { fetchMe(); fetchRouters(); autoFillPort(); });
+document.addEventListener("DOMContentLoaded", () => { fetchMe(); fetchRouters(); });
 
 async function fetchMe() {
     try {
@@ -23,14 +23,8 @@ async function fetchRouters() {
     } catch (e) { console.error(e); }
 }
 
-function autoFillPort() {
-    document.getElementById("routerPort").value = document.getElementById("routerType").value === "rest" ? 443 : 22;
-}
-
-// Modal and state management
 function openAddModal() {
     document.getElementById("routerForm").reset();
-    autoFillPort();
     document.getElementById("modalError").classList.add("hidden");
     document.getElementById("addModal").classList.remove("hidden");
 }
@@ -48,8 +42,10 @@ document.getElementById("routerForm").addEventListener("submit", async (e) => {
     const payload = {
         name: document.getElementById("routerName").value,
         host: document.getElementById("routerHost").value,
-        port: parseInt(document.getElementById("routerPort").value),
-        connection_type: document.getElementById("routerType").value,
+        port: parseInt(document.getElementById("routerPort").value) || 443,
+        connection_type: "rest",
+        snmp_community: document.getElementById("snmpCommunity").value || "public",
+        snmp_port: parseInt(document.getElementById("snmpPort").value) || 161,
         username: document.getElementById("routerUser").value,
         password: document.getElementById("routerPass").value
     };
@@ -87,16 +83,18 @@ function createRouterCard(r) {
                 <p class="text-[10px] text-slate-400 font-mono mt-0.5">${r.host}:${r.port}</p>
             </div>
             <div class="flex items-center space-x-1.5">
-                <span class="px-1.5 py-0.5 text-[9px] font-bold rounded uppercase ${r.connection_type === 'rest' ? 'bg-teal-950 text-teal-400 border border-teal-800' : 'bg-indigo-950 text-indigo-400 border border-indigo-800'}">${r.connection_type}</span>
+                <span class="px-1.5 py-0.5 text-[9px] font-bold rounded uppercase bg-teal-950 text-teal-400 border border-teal-800">REST</span>
+                <span class="px-1.5 py-0.5 text-[9px] font-bold rounded uppercase bg-indigo-950 text-indigo-400 border border-indigo-800">SNMP</span>
                 <button onclick="deleteRouter(${r.id})" class="text-slate-500 hover:text-red-400 text-xs">🗑️</button>
             </div>
         </div>
-        <div class="grid grid-cols-3 gap-1.5 border-t border-b border-slate-800/80 py-2">
-            <button onclick="fetchInfo(${r.id})" class="flex flex-col items-center p-1 bg-slate-950 hover:bg-slate-800 border border-slate-850 rounded text-[10px]">ℹ️ Info</button>
-            <button onclick="fetchUpdates(${r.id})" class="flex flex-col items-center p-1 bg-slate-950 hover:bg-slate-800 border border-slate-850 rounded text-[10px]">🔄 Updates</button>
-            <button onclick="fetchNtp(${r.id})" class="flex flex-col items-center p-1 bg-slate-950 hover:bg-slate-800 border border-slate-850 rounded text-[10px]">⏰ NTP</button>
+        <div class="grid grid-cols-4 gap-1 border-t border-b border-slate-800/80 py-2">
+            <button onclick="fetchInfo(${r.id})" class="flex flex-col items-center py-1 bg-slate-950 hover:bg-slate-800 border border-slate-850 rounded text-[9px]">ℹ️ Info</button>
+            <button onclick="fetchUpdates(${r.id})" class="flex flex-col items-center py-1 bg-slate-950 hover:bg-slate-800 border border-slate-850 rounded text-[9px]">🔄 Upd</button>
+            <button onclick="fetchNtp(${r.id})" class="flex flex-col items-center py-1 bg-slate-950 hover:bg-slate-800 border border-slate-850 rounded text-[9px]">⏰ NTP</button>
+            <button onclick="fetchSnmp(${r.id})" class="flex flex-col items-center py-1 bg-slate-950 hover:bg-slate-800 border border-slate-850 rounded text-[9px]">📊 SNMP</button>
         </div>
-        <div id="panel-${r.id}" class="hidden bg-slate-950 rounded border border-slate-850 p-2 text-xs text-slate-300"></div>
+        <div id="panel-${r.id}" class="hidden bg-slate-950 rounded border border-slate-850 p-2.5 text-xs text-slate-300"></div>
     `;
     return div;
 }
@@ -149,6 +147,29 @@ function fetchNtp(rid) {
             <div class="flex justify-between text-[11px]"><span class="text-slate-400">Synced:</span><span class="px-1.5 py-0.5 rounded text-[10px] ${s?'text-green-400 bg-green-950':'text-red-400 bg-red-950'}">${d.synced.toUpperCase()}</span></div>
             <div class="flex justify-between text-[11px]"><span class="text-slate-400">Active Server:</span><span class="text-white">${d.active_server}</span></div>
             <div class="flex justify-between text-[11px]"><span class="text-slate-400">Offset:</span><span class="text-slate-300 font-mono">${d.offset}</span></div>
+        </div>`;
+    });
+}
+
+function fetchSnmp(rid) {
+    fetchDiag(rid, "snmp", d => {
+        let ifsHtml = d.interfaces.map(i => `
+            <div class="flex justify-between text-[10px] border-b border-slate-900 py-1">
+                <span class="text-slate-400 truncate max-w-[100px]">${i.name}</span>
+                <span class="text-slate-200 font-mono">📥${fmtB(i.in_bytes)} | 📤${fmtB(i.out_bytes)}</span>
+            </div>
+        `).join("");
+        
+        return `<div class="space-y-1.5">
+            <div class="flex justify-between text-[11px]"><span class="text-slate-400">SNMP Uptime:</span><span class="text-white font-medium">${d.uptime}</span></div>
+            <div class="flex justify-between text-[11px]"><span class="text-slate-400">SNMP CPU Load:</span><span class="text-teal-400 font-medium">${d.cpu_load}%</span></div>
+            <div class="flex justify-between text-[11px]"><span class="text-slate-400">SNMP Memory (F/T):</span><span class="text-slate-200">${fmtB(d.free_memory)} / ${fmtB(d.total_memory)}</span></div>
+            <div class="border-t border-slate-800 pt-1.5 mt-1.5">
+                <div class="text-[10px] text-teal-400 font-semibold mb-1">Interfaces (Traffic):</div>
+                <div class="max-h-[120px] overflow-y-auto pr-1">
+                    ${ifsHtml || '<p class="text-slate-500 text-center py-1">No interfaces</p>'}
+                </div>
+            </div>
         </div>`;
     });
 }

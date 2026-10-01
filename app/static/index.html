@@ -5,19 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MikroTik Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>body { font-family: 'Inter', sans-serif; }</style>
+    <style>body { font-family: system-ui, sans-serif; }</style>
 </head>
 <body class="min-h-full flex flex-col">
     <!-- Navbar -->
     <nav class="bg-slate-900 border-b border-slate-800 px-4 py-3 flex justify-between items-center">
-        <span class="text-lg font-bold text-teal-400 flex items-center gap-2">
-            <span class="relative flex h-2 w-2">
-                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
-                <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
-            </span>
-            MikroTik Monitor
-        </span>
+        <span class="text-lg font-bold text-teal-400">⚡ MikroTik Monitor</span>
         <div class="flex items-center space-x-3">
             <span class="text-xs text-slate-400 hidden sm:inline">User: <span id="currentUsername" class="text-slate-200 font-medium">...</span></span>
             <button onclick="openAddModal()" class="bg-teal-500 hover:bg-teal-400 text-slate-950 px-3 py-1.5 rounded-lg text-xs font-semibold">+ Add Router</button>
@@ -41,7 +34,6 @@
 
         <div id="emptyState" class="hidden text-center py-20 bg-slate-900 rounded-xl border border-dashed border-slate-800">
             <h3 class="text-sm font-semibold text-slate-300">No routers added yet</h3>
-            <p class="text-xs text-slate-500 mt-1">Add your first MikroTik router to monitor health, updates and NTP.</p>
             <button onclick="openAddModal()" class="mt-4 bg-teal-500 hover:bg-teal-400 text-slate-950 px-4 py-2 rounded-lg text-xs font-semibold">Add Router</button>
         </div>
     </main>
@@ -61,13 +53,13 @@
             <form id="routerForm" class="space-y-3">
                 <input type="text" id="routerName" placeholder="Friendly Name" required class="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none">
                 <input type="text" id="routerHost" placeholder="IP / Hostname" required class="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none">
+                <input type="number" id="routerPort" placeholder="REST Port (default: 443)" value="443" required class="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none">
+                
                 <div class="grid grid-cols-2 gap-2">
-                    <select id="routerType" onchange="autoFillPort()" class="w-full px-2 py-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-100 text-xs">
-                        <option value="rest">REST API (HTTPS)</option>
-                        <option value="ssh">SSH Protocol</option>
-                    </select>
-                    <input type="number" id="routerPort" placeholder="443" required class="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none">
+                    <input type="text" id="snmpCommunity" placeholder="SNMP Community (public)" class="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none">
+                    <input type="number" id="snmpPort" placeholder="SNMP Port (161)" class="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none">
                 </div>
+
                 <input type="text" id="routerUser" placeholder="Username" required class="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none">
                 <input type="password" id="routerPass" placeholder="Password" required class="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none">
                 <div id="modalError" class="hidden p-2.5 rounded-lg bg-red-950 border border-red-900 text-red-200 text-xs leading-relaxed"></div>
@@ -81,3 +73,4 @@
     <script src="/static/app.js"></script>
 </body>
 </html>
+

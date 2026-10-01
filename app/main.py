@@ -22,9 +22,11 @@ class RouterPayload(BaseModel):
     name: str = Field(..., min_length=1)
     host: str = Field(..., min_length=1)
     port: int = Field(..., gt=0)
-    connection_type: str = Field(..., pattern="^(rest|ssh)$")
+    connection_type: str = Field("rest")
     username: str = Field(..., min_length=1)
     password: str = Field(..., min_length=1)
+    snmp_community: str = Field("public")
+    snmp_port: int = Field(161, gt=0)
 
 @app.post("/api/auth/login")
 async def login(response: Response, payload: LoginPayload):
@@ -72,14 +74,18 @@ async def list_routers(user: str = Depends(get_current_user)):
 
 @app.post("/api/routers")
 async def create_router(p: RouterPayload, user: str = Depends(get_current_user)):
-    client = MikroTikClient(p.host, p.port, p.username, p.password, p.connection_type)
+    client = MikroTikClient(p.host, p.port, p.username, p.password, p.connection_type, p.snmp_community, p.snmp_port)
     try:
         await client.test_connection()
     except Exception as e:
         return JSONResponse(status_code=400, content={"error": "Connection failed", "detail": str(e)})
     try:
-        rid = add_router(p.name, p.host, p.port, p.connection_type, p.username, p.password)
-        return {"id": rid, "name": p.name, "host": p.host, "port": p.port, "connection_type": p.connection_type, "username": p.username}
+        rid = add_router(p.name, p.host, p.port, p.connection_type, p.username, p.password, p.snmp_community, p.snmp_port)
+        return {
+            "id": rid, "name": p.name, "host": p.host, "port": p.port,
+            "connection_type": p.connection_type, "username": p.username,
+            "snmp_community": p.snmp_community, "snmp_port": p.snmp_port
+        }
     except Exception as e:
         raise HTTPException(500, f"Failed to save: {str(e)}")
 
@@ -93,7 +99,7 @@ async def _get_client(rid: int) -> MikroTikClient:
     r = get_router_by_id(rid)
     if not r:
         raise HTTPException(404, "Router not found")
-    return MikroTikClient(r["host"], r["port"], r["username"], r["password"], r["connection_type"])
+    return MikroTikClient(r["host"], r["port"], r["username"], r["password"], r["connection_type"], r["snmp_community"], r["snmp_port"])
 
 @app.get("/api/routers/{rid}/info")
 async def router_info(rid: int, user: str = Depends(get_current_user)):
@@ -119,6 +125,15 @@ async def router_ntp(rid: int, user: str = Depends(get_current_user)):
     except Exception as e:
         return JSONResponse(status_code=502, content={"error": "Failed to fetch NTP status", "detail": str(e)})
 
+@app.get("/api/routers/{rid}/snmp")
+async def router_snmp(rid: int, user: str = Depends(get_current_user)):
+    c = await _get_client(rid)
+    try:
+        return await c.get_snmp_stats()
+    except Exception as e:
+        return JSONResponse(status_code=502, content={"error": "Failed to fetch SNMP stats", "detail": str(e)})
+
 # Mount /static for index.html assets (must make directory if it doesn't exist)
 os.makedirs(os.path.join("app", "static"), exist_ok=True)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+

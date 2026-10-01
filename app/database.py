@@ -8,24 +8,13 @@ import hashlib
 DB_PATH = "/data/routers.db"
 
 def get_encryption_key() -> bytes:
-    """
-    Get or derive a valid 32-byte URL-safe base64 key for Fernet.
-    If DATA_ENCRYPTION_KEY is not defined, we use a default secret.
-    If a key is provided but is not exactly a valid Fernet key format,
-    we derive a secure 32-byte key from it using PBKDF2.
-    """
     key = os.getenv("DATA_ENCRYPTION_KEY", "default-mikrotik-dashboard-stable-secret-key")
-    
-    # Check if the key is already a valid Fernet key
     try:
         decoded = base64.urlsafe_b64decode(key.encode())
         if len(decoded) == 32:
             return key.encode()
     except Exception:
         pass
-    
-    # If not a valid Fernet key, derive a valid key using PBKDF2 from whatever string they provided
-    # This guarantees deployment will never crash due to a format error with DATA_ENCRYPTION_KEY
     derived = hashlib.pbkdf2_hmac('sha256', key.encode(), b'mikrotik_dashboard_salt_91', 100000)
     return base64.urlsafe_b64encode(derived)
 
@@ -40,7 +29,6 @@ def decrypt_password(encrypted_password: str) -> str:
     return f.decrypt(encrypted_password.encode()).decode()
 
 def init_db():
-    # Ensure database directory exists
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -56,6 +44,12 @@ def init_db():
             created_at TEXT NOT NULL
         )
     """)
+    cursor.execute("PRAGMA table_info(routers)")
+    cols = [col[1] for col in cursor.fetchall()]
+    if "snmp_community" not in cols:
+        cursor.execute("ALTER TABLE routers ADD COLUMN snmp_community TEXT")
+    if "snmp_port" not in cols:
+        cursor.execute("ALTER TABLE routers ADD COLUMN snmp_port INTEGER")
     conn.commit()
     conn.close()
 
@@ -68,18 +62,16 @@ def get_all_routers():
     init_db()
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, host, port, connection_type, username, created_at FROM routers ORDER BY created_at DESC")
+    cursor.execute("SELECT id, name, host, port, connection_type, username, snmp_community, snmp_port, created_at FROM routers ORDER BY created_at DESC")
     rows = cursor.fetchall()
     routers = []
-    for row in rows:
+    for r in rows:
         routers.append({
-            "id": row["id"],
-            "name": row["name"],
-            "host": row["host"],
-            "port": row["port"],
-            "connection_type": row["connection_type"],
-            "username": row["username"],
-            "created_at": row["created_at"]
+            "id": r["id"], "name": r["name"], "host": r["host"], "port": r["port"],
+            "connection_type": r["connection_type"], "username": r["username"],
+            "snmp_community": r["snmp_community"] if r["snmp_community"] else "public",
+            "snmp_port": r["snmp_port"] if r["snmp_port"] else 161,
+            "created_at": r["created_at"]
         })
     conn.close()
     return routers
@@ -89,35 +81,31 @@ def get_router_by_id(router_id: int):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM routers WHERE id = ?", (router_id,))
-    row = cursor.fetchone()
+    r = cursor.fetchone()
     conn.close()
-    if row:
-        try:
-            decrypted_pwd = decrypt_password(row["password"])
-        except Exception:
-            decrypted_pwd = "" # If encryption key changed, avoid absolute crash and return empty password
+    if r:
+        try: decrypted_pwd = decrypt_password(r["password"])
+        except Exception: decrypted_pwd = ""
         return {
-            "id": row["id"],
-            "name": row["name"],
-            "host": row["host"],
-            "port": row["port"],
-            "connection_type": row["connection_type"],
-            "username": row["username"],
+            "id": r["id"], "name": r["name"], "host": r["host"], "port": r["port"],
+            "connection_type": r["connection_type"], "username": r["username"],
             "password": decrypted_pwd,
-            "created_at": row["created_at"]
+            "snmp_community": r["snmp_community"] if r["snmp_community"] else "public",
+            "snmp_port": r["snmp_port"] if r["snmp_port"] else 161,
+            "created_at": r["created_at"]
         }
     return None
 
-def add_router(name: str, host: str, port: int, connection_type: str, username: str, password_raw: str) -> int:
+def add_router(name: str, host: str, port: int, connection_type: str, username: str, password_raw: str, snmp_community: str = "public", snmp_port: int = 161) -> int:
     init_db()
     conn = get_connection()
     cursor = conn.cursor()
     encrypted_pwd = encrypt_password(password_raw)
     created_at = datetime.utcnow().isoformat()
     cursor.execute("""
-        INSERT INTO routers (name, host, port, connection_type, username, password, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (name, host, port, connection_type, username, encrypted_pwd, created_at))
+        INSERT INTO routers (name, host, port, connection_type, username, password, snmp_community, snmp_port, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (name, host, port, connection_type, username, encrypted_pwd, snmp_community, snmp_port, created_at))
     new_id = cursor.lastrowid
     conn.commit()
     conn.close()
@@ -132,3 +120,4 @@ def delete_router(router_id: int) -> bool:
     conn.commit()
     conn.close()
     return affected > 0
+
