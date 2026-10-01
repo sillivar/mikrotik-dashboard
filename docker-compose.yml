@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   dashboard:
-    build: .
+    image: ghcr.io/sillivar/mikrotik-dashboard:latest
     container_name: mikrotik-dashboard
     ports:
       - "8080:8080"
@@ -17,3 +17,4 @@ services:
 
 volumes:
   router_data:
+
