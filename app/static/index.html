@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MikroTik Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Inter', sans-serif; }</style>
+</head>
+<body class="min-h-full flex flex-col">
+    <!-- Navbar -->
+    <nav class="bg-slate-900 border-b border-slate-800 px-4 py-3 flex justify-between items-center">
+        <span class="text-lg font-bold text-teal-400 flex items-center gap-2">
+            <span class="relative flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-teal-500"></span>
+            </span>
+            MikroTik Monitor
+        </span>
+        <div class="flex items-center space-x-3">
+            <span class="text-xs text-slate-400 hidden sm:inline">User: <span id="currentUsername" class="text-slate-200 font-medium">...</span></span>
+            <button onclick="openAddModal()" class="bg-teal-500 hover:bg-teal-400 text-slate-950 px-3 py-1.5 rounded-lg text-xs font-semibold">+ Add Router</button>
+            <a href="/logout" class="text-xs text-slate-400 hover:text-slate-100 bg-slate-800 px-3 py-1.5 rounded-lg transition duration-150">Logout</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-6">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="text-xl font-bold text-white">Saved Routers</h1>
+                <p class="text-xs text-slate-500">Diagnostic status overview for connected devices</p>
+            </div>
+            <button onclick="refreshAllRouters()" class="px-3 py-1.5 text-xs font-semibold rounded border border-slate-800 bg-slate-900 text-slate-400 hover:text-teal-400 transition">
+                Refresh All
+            </button>
+        </div>
+
+        <div id="routersGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+
+        <div id="emptyState" class="hidden text-center py-20 bg-slate-900 rounded-xl border border-dashed border-slate-800">
+            <h3 class="text-sm font-semibold text-slate-300">No routers added yet</h3>
+            <p class="text-xs text-slate-500 mt-1">Add your first MikroTik router to monitor health, updates and NTP.</p>
+            <button onclick="openAddModal()" class="mt-4 bg-teal-500 hover:bg-teal-400 text-slate-950 px-4 py-2 rounded-lg text-xs font-semibold">Add Router</button>
+        </div>
+    </main>
+
+    <footer class="bg-slate-950 border-t border-slate-900 py-4 text-center text-[10px] text-slate-600">
+        &copy; 2026 MikroTik Dashboard. All rights reserved.
+    </footer>
+
+    <!-- Add Router Modal -->
+    <div id="addModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" onclick="closeAddModal()"></div>
+        <div class="relative max-w-sm w-full bg-slate-900 rounded-xl border border-slate-800 p-5 z-10">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-base font-bold text-white">Add Router</h3>
+                <button onclick="closeAddModal()" class="text-slate-400 text-lg">&times;</button>
+            </div>
+            <form id="routerForm" class="space-y-3">
+                <input type="text" id="routerName" placeholder="Friendly Name" required class="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none">
+                <input type="text" id="routerHost" placeholder="IP / Hostname" required class="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none">
+                <div class="grid grid-cols-2 gap-2">
+                    <select id="routerType" onchange="autoFillPort()" class="w-full px-2 py-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-100 text-xs">
+                        <option value="rest">REST API (HTTPS)</option>
+                        <option value="ssh">SSH Protocol</option>
+                    </select>
+                    <input type="number" id="routerPort" placeholder="443" required class="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none">
+                </div>
+                <input type="text" id="routerUser" placeholder="Username" required class="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none">
+                <input type="password" id="routerPass" placeholder="Password" required class="w-full px-3 py-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-100 text-xs focus:ring-1 focus:ring-teal-500 focus:outline-none">
+                <div id="modalError" class="hidden p-2.5 rounded-lg bg-red-950 border border-red-900 text-red-200 text-xs leading-relaxed"></div>
+                <div class="flex justify-end space-x-2 pt-3 border-t border-slate-800">
+                    <button type="button" onclick="closeAddModal()" class="px-3 py-1.5 rounded-lg border border-slate-800 text-slate-300 text-xs hover:bg-slate-800">Cancel</button>
+                    <button type="submit" id="saveBtn" class="bg-teal-500 hover:bg-teal-400 text-slate-950 px-4 py-1.5 rounded-lg text-xs font-bold">Test & Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script src="/static/app.js"></script>
+</body>
+</html>

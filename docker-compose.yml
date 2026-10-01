@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  dashboard:
+    build: .
+    container_name: mikrotik-dashboard
+    ports:
+      - "8080:8080"
+    environment:
+      - APP_USER=${APP_USER:-admin}
+      - APP_PASSWORD=${APP_PASSWORD:-admin123}
+      - SESSION_SECRET_KEY=${SESSION_SECRET_KEY:-super-secret-session-key-change-me-123}
+      - DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY:-stable-data-encryption-key-for-passwords-456}
+    volumes:
+      - router_data:/data
+    restart: unless-stopped
+
+volumes:
+  router_data:
